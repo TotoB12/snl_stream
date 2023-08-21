@@ -1,28 +1,23 @@
-import subprocess
-import queue
 import os
-import time
-
+import queue
+import random
+import subprocess
+import threading
+from time import sleep
 
 video_queue = queue.Queue()
+urls_file = 'urls.txt'
+
+def download_video(url):
+    video_title = subprocess.check_output(['yt-dlp', '-f', 'best[ext=mp4]+bestaudio[ext=m4a]/mp4', '--get-title', url]).decode().strip()
+    sanitized_video_title = video_title.replace(':', '_')  # Replace colons with underscores
+    video_file = f'{sanitized_video_title}.mp4'
+    subprocess.run(['yt-dlp', '-f', 'best[ext=mp4]+bestaudio[ext=m4a]/mp4', '-o', video_file, url])
+    return f"C:\\Users\\totob\\Downloads\\snl\\{video_file}"
 
 def enqueue_video(video_path):
     video_queue.put(video_path)
     print(f"Video '{video_path}' added to the queue.")
-
-def get_queue_length():
-    return video_queue.qsize()
-
-def get_queue_duration():
-    duration = 0
-    for video_path in list(video_queue.queue):
-        try:
-            output = subprocess.check_output(['ffprobe', '-i', video_path, '-show_entries', 'format=duration', '-v', 'quiet', '-of', 'csv=%s' % ("p=0")])
-            duration += float(output)
-        except subprocess.CalledProcessError:
-            print(f"Failed to retrieve duration for video '{video_path}'.")
-    
-    return duration / 60
 
 def broadcast_video(video_path, stream_url, stream_key):
     ffmpeg_cmd = [
@@ -54,40 +49,72 @@ def broadcast_video(video_path, stream_url, stream_key):
         'flv',
         f'{stream_url}/{stream_key}'
     ]
+    # ffmpeg_cmd = [
+    #     'ffmpeg',
+    #     '-re',
+    #     '-i',
+    #     video_path,
+    #     '-c:v',
+    #     'libx264',
+    #     '-preset',
+    #     'veryfast',
+    #     '-tune',
+    #     'zerolatency',
+    #     '-c:a',
+    #     'aac',
+    #     '-ar',
+    #     '44100',
+    #     '-f',
+    #     'flv',
+    #     'rtmp://node-rtsp-rtmp-server.totob12.repl.co/live/STREAM_NAME'
+    # ]
 
     try:
         subprocess.run(ffmpeg_cmd, check=True)
+        os.remove(video_path)  # delete the video file after broadcasting
+        print(f"Finished broadcasting and deleted video file: {video_path}")
     except subprocess.CalledProcessError as e:
         print(f"An error occurred while broadcasting the video: {e}")
     except KeyboardInterrupt:
+        os.remove(video_path)  # Attempt to delete video file in case of interruption
         print("Broadcast interrupted by user.")
 
 def start_broadcast(stream_url, stream_key):
     while True:
+        while video_queue.qsize() < 3 and urls:  # Download videos until there are at least 3 in the queue
+            url = urls.pop()
+            try:
+                video_file = download_video(url)
+                enqueue_video(video_file)
+            except Exception as e:
+                print(f'Error downloading from {url}: {str(e)}')
+
         if not video_queue.empty():
             video_path = video_queue.get()
             print(f"Now broadcasting: {video_path}")
             broadcast_video(video_path, stream_url, stream_key)
-            print(f"Finished broadcasting: {video_path}")
-
-            # Delete the video file after broadcasting
-            os.remove(video_path)
+        elif not urls:
+            break  # Break the loop if all videos have been broadcasted and there are no more URLs to download
         else:
-            loop_video_path = 'path/to/your/loop/video.mp4'  # Specify the loop video path
+            loop_video_path = 'C:\\Users\\totob\\Downloads\\snl\\wait.mp4'  # Specify the loop video path
             print(f"Now looping: {loop_video_path}")
             broadcast_video(loop_video_path, stream_url, stream_key)
-            print(f"Finished looping: {loop_video_path}")
 
-# Example usage
-video_file1 = 'C:\\Users\\totob\\Downloads\\live\\snt0.mp4'
-video_file2 = 'C:\\Users\\totob\\Downloads\\live\\snt0.mp4'
-stream_url = 'rtmp://a.rtmp.youtube.com/live2'
-stream_key = 'sx5j-wds6-77k5-pwsx-8khy'
+# Main script execution
+# stream_url = 'rtmp://a.rtmp.youtube.com/live2'  # youtube
+# stream_key = 'sx5j-wds6-77k5-pwsx-8khy'  # youtube
+stream_url = 'rtmp://localhost:1935'  # api.video
+stream_key = '05ff367e-d348-4b52-99a7-e54150ce8263'  # api.video
 
-enqueue_video(video_file1)
-enqueue_video(video_file2)
+with open(urls_file, 'r') as file:
+    urls = file.readlines()
+random.shuffle(urls)  # Shuffle URLs before starting
 
-print(f"Queue length: {get_queue_length()} videos")
-print(f"Queue duration: {get_queue_duration()} minutes")
-
+# Start the broadcasting loop
 start_broadcast(stream_url, stream_key)
+
+# Shuffle URLs and start broadcasting loop again
+while True:
+    print('Finished broadcasting all videos. Starting over...')
+    random.shuffle(urls)
+    start_broadcast(stream_url, stream_key)
