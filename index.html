@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Video Stream</title>
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000;
+    }
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #playButton {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 2em;
+      background: #000;
+      color: #fff;
+      padding: 10px 20px;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" src="/playlist.m3u8"></video>
+  <button id="playButton">Play</button>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script>
+    var video = document.getElementById('video');
+    var playButton = document.getElementById('playButton');
+
+    playButton.addEventListener('click', function() {
+      loadVideo();
+      playButton.style.display = 'none';
+    });
+
+    video.addEventListener('ended', function() {
+      loadVideo();
+    });
+
+    function loadVideo() {
+      if(Hls.isSupported()) {
+        var hls = new Hls();
+        hls.loadSource('playlist.m3u8?v=' + Date.now()); // add a cache-busting query parameter
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED,function() {
+          video.play();
+        });
+      }
+      else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = 'playlist.m3u8?v=' + Date.now(); // add a cache-busting query parameter
+        video.addEventListener('loadedmetadata',function() {
+          video.play();
+        });
+      }
+    }
+</script>
+</body>
+</html>
