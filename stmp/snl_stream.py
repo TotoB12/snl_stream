@@ -67,8 +67,8 @@ def start_broadcast(stream_url, stream_key):
             print(f"Now looping: {loop_video_path}")
             broadcast_video(loop_video_path, stream_url, stream_key)
 
-stream_url = 'rtmp://a.rtmp.youtube.com/live2'
-stream_key = 'sx5j-wds6-77k5-pwsx-8khy'
+stream_url = ''
+stream_key = ''
 
 while True:
     with open(urls_file, 'r') as file:
