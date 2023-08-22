@@ -53,14 +53,14 @@
     function loadVideo() {
       if(Hls.isSupported()) {
         var hls = new Hls();
-        hls.loadSource('playlist.m3u8?v=' + Date.now()); // add a cache-busting query parameter
+        hls.loadSource('playlist.m3u8?v=' + Date.now());
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED,function() {
           video.play();
         });
       }
       else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = 'playlist.m3u8?v=' + Date.now(); // add a cache-busting query parameter
+        video.src = 'playlist.m3u8?v=' + Date.now();
         video.addEventListener('loadedmetadata',function() {
           video.play();
         });
